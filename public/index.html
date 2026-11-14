@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Junior Astronaut Mission Trainer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Setup screen -->
+  <section id="setup" class="overlay">
+    <div class="panel">
+      <h1>Junior Astronaut Mission Trainer</h1>
+      <p class="sub">A lunar south pole training simulation for 3 cadets. Your Dungeon Master: <b id="dmNameSetup"></b> <span id="dmSpriteSetup"></span></p>
+      <label>Astronaut 1 <input id="name0" maxlength="20" value="Astro Ava"></label>
+      <label>Astronaut 2 <input id="name1" maxlength="20" value="Captain Ben"></label>
+      <label>Astronaut 3 <input id="name2" maxlength="20" value="Rover Cy"></label>
+      <p class="hint">Pass the device around, or play all three yourself. Take turns rolling the d20.</p>
+      <button id="startBtn" class="big">Begin Training 🚀</button>
+    </div>
+  </section>
+
+  <!-- Fact / message popup -->
+  <section id="popup" class="overlay hidden">
+    <div class="panel">
+      <h2 id="popupTitle"></h2>
+      <p id="popupText"></p>
+      <p><a id="popupLink" target="_blank" rel="noopener"></a></p>
+      <button id="popupBtn" class="big">Continue</button>
+    </div>
+  </section>
+
+  <header>
+    <h1>Junior Astronaut Mission Trainer</h1>
+    <span id="aiStatus" class="pill"></span>
+  </header>
+
+  <main>
+    <div class="col">
+      <svg id="map" viewBox="0 0 500 500" aria-label="Lunar south pole map"></svg>
+      <p class="tiny">Map is a diagram, not to scale. Click an unlocked location to travel.</p>
+      <div id="poiCard" class="card"></div>
+    </div>
+
+    <div class="col">
+      <div id="party"></div>
+      <div id="log" class="card log" aria-live="polite"></div>
+
+      <div class="card controls">
+        <div class="tabs">
+          <button id="tabRoll" class="tab active">🎲 Roll</button>
+          <button id="tabTalk" class="tab">💬 Talk</button>
+        </div>
+        <p id="turnLabel" class="turn"></p>
+
+        <div id="rollPane">
+          <input id="actionText" maxlength="300" placeholder="What do you do? e.g. 'I swing my moon shovel at the bugs'">
+          <p class="tiny">Using item: <b id="itemLabel">none</b> (click an item in your inventory)</p>
+          <button id="rollBtn" class="big">Roll d20</button>
+          <div id="dice" class="dice">–</div>
+        </div>
+
+        <div id="talkPane" class="hidden">
+          <select id="talkTo"></select>
+          <input id="talkText" maxlength="300" placeholder="Say something...">
+          <button id="talkBtn" class="big">Send</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>built by Troy · Space Apps 2026 · DM powered by Gemini</footer>
+
+  <script src="data.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
