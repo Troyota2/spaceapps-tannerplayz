@@ -18,7 +18,7 @@ const state = () => ({
   poi: { name: 'Cabeus', challenge: 'Drill', fact: 'LCROSS found water ice here.' },
   favorite: 0, joke: 1, gags: ['Ben fell in a crater'], log: [],
 });
-const req = (over = {}) => dm.sanitizeRequest({ mode: 'action', actor: 0, roll: 12, text: 'go', state: state(), ...over });
+const req = (over = {}) => dm.sanitizeRequest({ mode: 'action', actor: 0, roll: 12, text: 'I attack the bug', state: state(), ...over });
 
 test('rollBand edges', () => {
   const expect = { 1: 'CRIT_FAIL', 2: 'VERY_BAD', 3: 'VERY_BAD', 4: 'BAD', 9: 'BAD', 10: 'CLOSE_CALL', 11: 'SUCCESS', 17: 'SUCCESS', 18: 'GREAT', 19: 'GREAT', 20: 'CRIT_SUCCESS' };
@@ -65,7 +65,7 @@ test('enemies: boss needs 4 hits, unknown ids ignored', () => {
   const out = dm.sanitizeReply({ enemyUpdates: [{ id: 'w', hit: true, defeated: true }, { id: 'ghost', hit: true, defeated: true }, { id: 'b1', hit: true, defeated: true }] }, req());
   assert.deepStrictEqual(out.enemyUpdates, [{ id: 'w', hit: true, defeated: false }, { id: 'b1', hit: true, defeated: true }]);
   const s = state(); s.enemies[1].hits = 3;
-  const out2 = dm.sanitizeReply({ enemyUpdates: [{ id: 'w', hit: true, defeated: true }] }, dm.sanitizeRequest({ mode: 'action', actor: 0, roll: 15, text: 'x', state: s }));
+  const out2 = dm.sanitizeReply({ enemyUpdates: [{ id: 'w', hit: true, defeated: true }] }, dm.sanitizeRequest({ mode: 'action', actor: 0, roll: 15, text: 'I hit the worm', state: s }));
   assert.strictEqual(out2.enemyUpdates[0].defeated, true);
 });
 
@@ -128,6 +128,18 @@ test('statuses and mood are cleaned up', () => {
   assert.strictEqual(out.moodChange, -1);
   assert.deepStrictEqual(out.statusChanges, [{ who: 'b1', add: ['weakened', 'scared', 'dizzy'], remove: [] }]);
   assert.strictEqual(dm.sanitizeReply({ moodChange: 1 }, req({ mode: 'talk' })).moodChange, 1, 'talking can change mood');
+});
+
+test('actions not aimed at an enemy leave enemies alone', () => {
+  const reply = { enemyUpdates: [{ id: 'b1', hit: true, defeated: true }], statusChanges: [{ who: 'b1', add: ['weakened'] }, { who: 'p0', add: ['embarrassed'] }] };
+  const insult = dm.sanitizeReply(reply, req({ roll: 17, text: 'Fuck you Magic the Tanner.' }));
+  assert.deepStrictEqual(insult.enemyUpdates, []);
+  assert.deepStrictEqual(insult.statusChanges.map((c) => c.who), ['p0'], 'player status still allowed');
+  const attack = dm.sanitizeReply(reply, req({ roll: 17, text: 'I zap Moon Bug A with my laser' }));
+  assert.strictEqual(attack.enemyUpdates.length, 1);
+  assert.deepStrictEqual(attack.statusChanges.map((c) => c.who), ['b1', 'p0']);
+  assert.ok(dm.aimsAtEnemy('I show them my aura', []));
+  assert.ok(!dm.aimsAtEnemy('I search the crate', []));
 });
 
 test('limiter: per-minute and daily cap', () => {

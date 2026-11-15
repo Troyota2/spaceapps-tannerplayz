@@ -18,6 +18,13 @@ function enemyDamage(roll) {
   return roll <= 17 ? 1 : 2;
 }
 
+// Does this player action aim at an enemy at all? (names, sprite words, or attack verbs)
+const ENEMY_WORDS = /\b(bugs?|mites?|worms?|enem(y|ies)|them|it|attack|hit|shoot|zap|blast|laser|cut|fight|kick|punch|chop|smack|bonk|throw|stomp|tackle|aura|scare|intimidat\w*|trap|tape|shield|swing|bash|grapple|pull|push|stab|strike|charge)\b/i;
+function aimsAtEnemy(text, enemies) {
+  const t = text.toLowerCase();
+  return enemies.some((e) => !e.defeated && t.includes(e.name.toLowerCase())) || ENEMY_WORDS.test(text);
+}
+
 const cleanStatuses = (arr) => (Array.isArray(arr) ? arr : []).map((x) => clip(x, 20).trim().toLowerCase()).filter(Boolean).slice(0, 3);
 
 function rollBand(roll) {
@@ -39,7 +46,8 @@ STYLE
 - Very occasionally, a tiny kid-friendly pop-culture nod in words only (a video game, an internet-famous vocal synth singer humming). Never quote song lyrics. Never make it the main joke.
 
 PLAYER ROLLS (mode "action")
-- First decide what the roll is for ("rollingFor", e.g. "Agility check to dodge").
+- First decide what the roll is for ("rollingFor", e.g. "Agility check to dodge"), based ONLY on what the player actually said. If they just talk, joke, or insult someone, the roll is for that (e.g. "Charisma check"); never invent an attack they didn't describe.
+- Only enemies the player's action is aimed at can be hit, defeated, or get new statuses. If the action isn't aimed at an enemy, leave every enemy alone.
 - Bands: CRIT_FAIL (1) = backfires on the roller in a funny way. VERY_BAD (2-3) = goes clearly wrong. BAD (4-9) = fails or only half works, but nothing hurts them.
   CLOSE_CALL (10) = usually let it slide. SUCCESS (11-17) = works. GREAT (18-19) = works really well. CRIT_SUCCESS (20) = works plus a bonus.
 - Players only hurt THEMSELVES on a 1 (up to 2 HP) or a 2-3 (up to 1 HP). On 4+ their own action never costs them HP. Enemies deal damage only on their own turn.
@@ -234,7 +242,8 @@ function sanitizeReply(raw, req) {
   });
 
   const enemyUpdates = [];
-  if (!talk && !enemyTurn) {
+  const aimed = req.mode === 'action' && aimsAtEnemy(req.text, req.enemies);
+  if (aimed) {
     for (const u of Array.isArray(r.enemyUpdates) ? r.enemyUpdates.slice(0, 6) : []) {
       const en = req.enemies.find((e) => e.id === (u && u.id) && !e.defeated);
       if (!en || enemyUpdates.some((x) => x.id === en.id)) continue;
@@ -260,7 +269,9 @@ function sanitizeReply(raw, req) {
     }
   }
 
-  const ids = new Set([...req.players.map((p) => p.id), ...req.enemies.filter((e) => !e.defeated).map((e) => e.id)]);
+  // Enemies only change if the action was aimed at them (or on the enemies' own turn).
+  const enemyIds = req.mode === 'talk' || aimed || enemyTurn ? req.enemies.filter((e) => !e.defeated).map((e) => e.id) : [];
+  const ids = new Set([...req.players.map((p) => p.id), ...enemyIds]);
   const statusChanges = (Array.isArray(r.statusChanges) ? r.statusChanges : []).slice(0, 8)
     .filter((c) => c && ids.has(c.who))
     .map((c) => ({ who: c.who, add: cleanStatuses(c.add), remove: cleanStatuses(c.remove) }));
@@ -403,4 +414,4 @@ async function callGemini(req, { apiKey, model, fetchImpl = fetch, timeoutMs = 2
   return JSON.parse(text.slice(start, end + 1));
 }
 
-module.exports = { DM_NAME, GRID, BOSS_MIN_HITS, SYSTEM_PROMPT, rollBand, enemyDamage, sanitizeRequest, buildPrompt, sanitizeReply, fallbackReply, callGemini };
+module.exports = { DM_NAME, GRID, BOSS_MIN_HITS, SYSTEM_PROMPT, rollBand, enemyDamage, aimsAtEnemy, sanitizeRequest, buildPrompt, sanitizeReply, fallbackReply, callGemini };
