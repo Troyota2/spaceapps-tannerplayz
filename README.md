@@ -48,7 +48,7 @@ I signed up and only remembered the night before, so I gave myself a strict ~2 h
 | 3:47 PM | Game client written and tested headless through a full playthrough to the boss |
 | ~4:10 PM | Tier 1 deployed to spaceapps.tannerplayz.com (separate repo, PM2 process, Nginx block, DNS record) |
 | 4:32 PM | Playtested; feedback round: classes, 5 HP, inventory-only items + searching, per-enemy tracking, scene grid with positions, turn banner, thinking indicator, intro + first-turn tutorials |
-| ~5:00 PM | v2 written, 12 automated tests + full headless playthrough passing |
+| 4:41 PM | v2 written, 12 automated tests + full headless playthrough passing |
 | _fill in_ | Real Gemini DM tested live |
 | _fill in_ | End of build |
 
