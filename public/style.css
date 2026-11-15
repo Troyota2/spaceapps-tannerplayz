@@ -74,8 +74,8 @@ select option { background: var(--bg); }
 .dice.fumble { color: var(--bad); }
 
 /* Overlays */
-.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 10; padding: 16px; overflow-y: auto; }
-.overlay .panel { background: var(--bg); border: 1px solid var(--fg); border-radius: 10px; padding: 22px; max-width: 480px; width: 100%; max-height: 95vh; overflow-y: auto; }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: flex-start; justify-content: center; z-index: 10; padding: 16px; overflow-y: auto; }
+.overlay .panel { background: var(--bg); border: 1px solid var(--fg); border-radius: 10px; padding: 22px; max-width: 480px; width: 100%; margin: auto; }
 .overlay .panel.wide { max-width: 760px; }
 .overlay label { display: block; margin: 8px 0 4px; color: var(--dim); }
 .overlay h1 { font-size: 20px; margin-top: 0; }

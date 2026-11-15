@@ -32,7 +32,9 @@ function createApp({ apiKey = process.env.GEMINI_API_KEY, model = process.env.GE
   app.disable('x-powered-by');
   app.set('trust proxy', 'loopback'); // Nginx on the same machine
   app.use(express.json({ limit: '20kb' }));
-  app.use(express.static(path.join(__dirname, 'public')));
+  // no-cache = browsers and Cloudflare must re-check for a new version on every load,
+// so a deploy never mixes a new index.html with an old game.js.
+app.use(express.static(path.join(__dirname, 'public'), { setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 
   const limiter = createLimiter({ perMinute, dailyCap });
 
