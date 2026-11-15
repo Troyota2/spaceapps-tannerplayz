@@ -48,8 +48,14 @@ test('no conjuring: items only appear from a real search or a nat 20, max 1', ()
   assert.strictEqual(dm.sanitizeReply(conjure, req({ roll: 20 })).effects[0].addItem, 'Moon Nuke');
 });
 
-test('damage capped at 2, can only remove items the player has', () => {
-  const out = dm.sanitizeReply({ effects: [{ player: 0, hpChange: -99, removeItem: 'Laser' }, { player: 0, removeItem: 'space snack' }] }, req());
+test('self-damage only on 1-3; friendly fire max 1; can only remove items the player has', () => {
+  const hit = (roll, player = 0) => dm.sanitizeReply({ effects: [{ player, hpChange: -99 }] }, req({ roll })).effects[0].hpChange;
+  assert.strictEqual(hit(12), 0, 'a 12 never hurts you');
+  assert.strictEqual(hit(8), 0, 'an 8 never hurts you');
+  assert.strictEqual(hit(3), -1);
+  assert.strictEqual(hit(1), -2);
+  assert.strictEqual(hit(15, 1), -1, 'friendly fire max 1');
+  const out = dm.sanitizeReply({ effects: [{ player: 0, hpChange: -99, removeItem: 'Laser' }, { player: 0, removeItem: 'space snack' }] }, req({ roll: 1 }));
   assert.strictEqual(out.effects[0].hpChange, -2);
   assert.strictEqual(out.effects[0].removeItem, null);
   assert.strictEqual(out.effects[1].removeItem, 'Space Snack');
@@ -101,6 +107,27 @@ test('fallback: damage rule (6-9 = 1, 1-5 = 2), favorite twist, search finds', (
   const search = ben(15, 'I search behind the rock');
   assert.strictEqual(search.searched, 'rock');
   assert.ok(search.effects[0].addItem);
+});
+
+test('enemy turn: damage comes from the enemy roll, 1 = hurts itself, blocked = -1', () => {
+  const s = state(); s.enemies.push({ id: 'b2', name: 'Moon Bug B', pos: { x: 1, y: 0 } }, { id: 'b3', name: 'Moon Bug C', pos: { x: 5, y: 0 } });
+  const r = dm.sanitizeRequest({ mode: 'enemy', state: s, enemyRolls: [{ id: 'b1', roll: 18 }, { id: 'w', roll: 12 }, { id: 'b2', roll: 1 }, { id: 'b3', roll: 5 }, { id: 'ghost', roll: 20 }] });
+  assert.strictEqual(r.enemyRolls.length, 4, 'unknown enemy dropped');
+  const out = dm.sanitizeReply({ effects: [{ player: 0, hpChange: -2 }], enemyActions: [{ id: 'b1', target: 'p2' }, { id: 'w', target: 'p1', blocked: true }] }, r);
+  assert.deepStrictEqual(out.effects.map((e) => [e.player, e.hpChange]), [[2, -2]], 'AI hp effects ignored; blocked 1-damage hit becomes 0; miss does nothing');
+  assert.deepStrictEqual(out.enemyUpdates, [{ id: 'b2', hit: true, defeated: true }]);
+  const boss = dm.sanitizeReply({}, dm.sanitizeRequest({ mode: 'enemy', state: state(), enemyRolls: [{ id: 'w', roll: 1 }] }));
+  assert.deepStrictEqual(boss.enemyUpdates, [{ id: 'w', hit: true, defeated: false }], 'boss survives a self-bonk');
+  const noTarget = dm.sanitizeReply({}, dm.sanitizeRequest({ mode: 'enemy', state: state(), enemyRolls: [{ id: 'b1', roll: 15 }] }));
+  assert.strictEqual(noTarget.effects[0].hpChange, -1, 'picks nearest player when the AI gives no target');
+  assert.throws(() => dm.sanitizeRequest({ mode: 'enemy', state: state(), enemyRolls: [] }), /enemyRolls/);
+});
+
+test('statuses and mood are cleaned up', () => {
+  const out = dm.sanitizeReply({ moodChange: -7, statusChanges: [{ who: 'b1', add: ['Weakened', 'Scared', 'Dizzy', 'Extra'] }, { who: 'nobody', add: ['x'] }] }, req());
+  assert.strictEqual(out.moodChange, -1);
+  assert.deepStrictEqual(out.statusChanges, [{ who: 'b1', add: ['weakened', 'scared', 'dizzy'], remove: [] }]);
+  assert.strictEqual(dm.sanitizeReply({ moodChange: 1 }, req({ mode: 'talk' })).moodChange, 1, 'talking can change mood');
 });
 
 test('limiter: per-minute and daily cap', () => {

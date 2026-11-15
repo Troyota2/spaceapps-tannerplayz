@@ -10,13 +10,17 @@ A D&D-style training adventure at the Moon's south pole for 3 junior astronauts 
 2. **🎲 Roll:** on your turn, type what you want to do, optionally click one of your items, and roll the d20. The DM decides what the roll was for and what happens:
    - **1** backfires on you in a funny way. **2-3** go really badly. **4-9** fail or only half work.
    - **10** usually slides. **11-17** succeed. **18-19** go really well. **20** succeeds with a bonus.
-   - Enemies only hit back on rolls under 10: **1 damage on 6-9, 2 damage on 1-5**.
+   - Your own roll only hurts you on a **1 (up to 2 HP) or 2-3 (up to 1 HP)**.
+   - After every full round, the **enemies take a turn**: each bug rolls its own d20. **1** = it bonks itself, **2-9** = miss, **10-17** = 1 damage, **18-20** = 2 damage. The server enforces these numbers; the AI only picks targets and narrates.
 3. **🎒 Items:** you can only use what's in your inventory; trying to use something you don't have (like a "moon nuke") fails comically. Find new items by **searching** rocks, crates and lockers. Each spot can be searched once. The server enforces this, not just the AI.
 4. **🧭 Scene / 🗺️ Map:** the Scene shows a grid with where every astronaut, bug and search spot is, and the DM moves people as the story happens. The Map shows the 5-stop route.
 5. **Enemies have no health bars.** Each bug is tracked separately (hits taken, turns fought), and the DM decides when it's defeated. The boss needs at least 4 hits.
-6. **Friendly fire** is allowed, but deliberately sabotaging a teammate usually backfires on the saboteur (in a slapstick way).
-7. **💬 Talk:** chat with the DM or the NPC astronauts at the two moon bases. Talking doesn't use your turn.
-8. It's nearly impossible to lose. Knocked-out astronauts reboot at the next location, and if the whole crew goes down, the simulation rewinds.
+6. **✨ Statuses** (scared, weakened, shielded, dizzy, inspired...) on players and bugs drive what the DM decides. A natural 20, even on "umm idk", gives you something awesome like a bug-scaring aura.
+7. **🎩 DM mood and ego:** the DM's mood (shown in the header) goes up when you compliment it or get creative and down when you're rude or boring. A happy DM bends things your way; an annoyed one gets petty (in funny, kid-safe ways).
+8. **Friendly fire** is allowed, but deliberately sabotaging a teammate usually backfires on the saboteur (in a slapstick way).
+9. **💬 Talk:** chat with the DM or the NPC astronauts at the two moon bases. Talking doesn't use your turn.
+10. After an area is cleared, press the yellow **🚀 Travel** button to go to the next stop.
+11. It's nearly impossible to lose. Knocked-out astronauts reboot at the next location, and if the whole crew goes down, the simulation rewinds.
 
 **Secret DM mechanics** (revealed at the end of the game): the DM secretly picks a *favorite*, whose bad rolls get twisted into ridiculous luck and who gets called "so smart" for anything, and a *lovable joke of the crew*, who gets funnier (never mean) misfortunes. The DM also keeps a list of running gags and keeps bringing them back.
 
@@ -54,6 +58,7 @@ I signed up and only remembered the night before, so I gave myself a strict ~2 h
 | 4:55 PM | Live AI DM was timing out: the default model was overloaded (HTTP 503 after 22s); switched to `gemini-3.5-flash-lite` (1s responses) |
 | 5:05 PM | Fixed stale cached JS after deploy (cache-busting + no-cache headers) |
 | 5:15 PM | Second playtest with the real AI DM. Removed points, Continue button between turns, scattered starts, walk-to-search, synthesized sound effects, small-screen scene; 15 tests passing |
+| 5:34 PM | Third playtest feedback. Added statuses, DM mood/ego, enemy turns with their own rolls, self-damage only on 1-3, a 🚀 Travel button; 17 tests passing |
 | _fill in_ | Real Gemini DM tested live |
 | _fill in_ | End of build |
 

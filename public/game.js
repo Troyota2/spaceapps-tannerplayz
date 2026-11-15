@@ -15,6 +15,8 @@ const state = {
   joke: 1,          // secret
   selectedItem: null,
   awaitContinue: false, // after a roll, wait for "Continue" so everyone can read what happened
+  enemyPhaseDone: false, // enemies already acted this round
+  mood: 0,          // DM mood, -3 (furious) to +3 (delighted)
   busy: false,
   won: false,
 };
@@ -66,6 +68,9 @@ const sfx = (() => {
   };
 })();
 
+const MOODS = ['😡 furious', '😠 annoyed', '😒 grumpy', '😐 neutral', '🙂 pleased', '😄 happy', '🤩 delighted'];
+const moodFace = () => MOODS[state.mood + 3];
+
 const currentPoi = () => POIS[state.poiIndex];
 const scene = () => state.scenes[currentPoi().id];
 const unlockedUpTo = () => Math.min(POIS.length - 1, state.cleared.length);
@@ -96,7 +101,7 @@ function startGame() {
     return {
       name: $('name' + i).value.trim().slice(0, 20) || `Astronaut ${i + 1}`,
       cls, perk: c.perk, hp: c.hp, maxHp: c.hp,
-      inventory: [...c.items], ko: false, pos: { x: 0, y: i }, introduced: false,
+      inventory: [...c.items], statuses: [], ko: false, pos: { x: 0, y: i }, introduced: false,
     };
   });
   // Secretly pick the DM's favorite and the lovable joke (always two different people).
@@ -110,9 +115,10 @@ function startGame() {
 function enterPoi(i) {
   const poi = POIS[i];
   state.poiIndex = i;
+  state.enemyPhaseDone = false;
   if (!state.scenes[poi.id]) {
     state.scenes[poi.id] = {
-      enemies: poi.enemies.map((e) => ({ id: e.id, name: e.name, sprite: e.sprite, boss: !!e.boss, hits: 0, turnsFought: 0, defeated: false, pos: { x: e.x, y: e.y } })),
+      enemies: poi.enemies.map((e) => ({ id: e.id, name: e.name, sprite: e.sprite, boss: !!e.boss, hits: 0, turnsFought: 0, defeated: false, statuses: [], pos: { x: e.x, y: e.y } })),
       props: poi.props.map((p) => ({ id: p.id, name: p.name, sprite: p.sprite, searched: false, pos: { x: p.x, y: p.y } })),
       progress: 0,
     };
@@ -149,6 +155,7 @@ async function askDM(body) {
       poi: { name: currentPoi().name, challenge: currentPoi().challenge, fact: currentPoi().fact, npc: currentPoi().base?.npc || '' },
       favorite: state.favorite,
       joke: state.joke,
+      mood: state.mood,
       gags: state.gags,
       log: state.log.filter((l) => l.kind !== 'thinking').slice(-6).map((l) => l.text),
     },
@@ -201,14 +208,47 @@ async function doRoll() {
 }
 
 // Next player presses Continue: then the turn passes and any popups appear.
-function doContinue() {
-  if (!state.awaitContinue) return;
+async function doContinue() {
+  if (!state.awaitContinue || state.busy) return;
   state.awaitContinue = false;
+  checkPoi();
+  const alive = scene().enemies.filter((e) => !e.defeated);
+  const roundOver = nextIndex() <= state.turn; // wrapping back to the first player
+  if (roundOver && !state.enemyPhaseDone && alive.length && !state.cleared.includes(currentPoi().id)) {
+    state.enemyPhaseDone = true;
+    await enemyTurn(alive);
+    return;
+  }
+  state.enemyPhaseDone = false;
   sfx.play('turn');
   nextTurn();
-  checkPoi();
   render();
   maybeTutorial();
+}
+
+// After every full round, each living enemy rolls its own d20 and attacks.
+async function enemyTurn(alive) {
+  setBusy(true);
+  $('turnBanner').textContent = '🐛 ENEMIES\' TURN!';
+  $('turnBanner').classList.add('enemy');
+  addLog('sys', '🐛 The enemies make their move...');
+  const enemyRolls = [];
+  for (const en of alive) {
+    const roll = d20();
+    await animateDice(roll);
+    addLog('sys', `🎲 ${en.name} rolled a ${roll}`);
+    enemyRolls.push({ id: en.id, roll });
+  }
+  showThinking();
+  const reply = await askDM({ mode: 'enemy', actor: state.turn, enemyRolls }).catch(() => null);
+  hideThinking();
+  $('turnBanner').classList.remove('enemy');
+  if (reply) applyReply(reply);
+  else addLog('sys', 'The bugs got distracted by a shiny rock. Lucky!');
+  checkPoi();
+  state.awaitContinue = true;
+  setBusy(false);
+  render();
 }
 
 async function doTalk() {
@@ -242,7 +282,7 @@ function applyReply(r, speaker) {
       if (k >= 0) { p.inventory.splice(k, 1); fx.push(`used up ${e.removeItem}`); }
     }
     if (e.addItem && p.inventory.length < 8) { p.inventory.push(e.addItem); fx.push(`found ${e.addItem}!`); sfx.play('item'); }
-    if (fx.length) addLog('fx', `${p.name}: ${fx.join(', ')}`);
+    if (fx.length) addLog('fx', `${p.name}: ${fx.join(', ')}${e.from ? ` (from ${e.from})` : ''}`);
     if (p.hp === 0 && !p.ko) { p.ko = true; addLog('sys', `💫 ${p.name} is knocked out! The simulation reboots them at the next location.`); }
     if (p.hp > 0) p.ko = false;
   }
@@ -255,6 +295,21 @@ function applyReply(r, speaker) {
   for (const m of r.moves || []) {
     const who = m.who.startsWith('p') ? state.players[Number(m.who.slice(1))] : s.enemies.find((x) => x.id === m.who);
     if (who) who.pos = { x: m.x, y: m.y };
+  }
+  for (const c of r.statusChanges || []) {
+    const who = c.who.startsWith('p') ? state.players[Number(c.who.slice(1))] : s.enemies.find((x) => x.id === c.who);
+    if (!who) continue;
+    who.statuses = who.statuses.filter((x) => !c.remove.includes(x));
+    for (const a of c.add) if (!who.statuses.includes(a)) who.statuses.push(a);
+    who.statuses = who.statuses.slice(-3);
+    const name = who.name;
+    if (c.add.length) addLog('fx', `${name} is now ${c.add.join(', ')}`);
+    if (c.remove.length) addLog('fx', `${name} is no longer ${c.remove.join(', ')}`);
+  }
+  if (r.moodChange) {
+    state.mood = Math.max(-3, Math.min(3, state.mood + r.moodChange));
+    addLog('fx', `${DM_SPRITE} ${DM_NAME}'s mood ${r.moodChange > 0 ? 'went up' : 'went down'}: ${moodFace()}`);
+    sfx.play(r.moodChange > 0 ? 'heal' : 'hurt');
   }
   if (r.searched) { const pr = s.props.find((x) => x.id === r.searched); if (pr) pr.searched = true; }
   if (r.progress) s.progress += r.progress;
@@ -295,7 +350,7 @@ function checkPoi() {
     ], poi.source);
   } else {
     sfx.play('clear');
-    queuePopup(`✅ ${poi.name} complete!`, [`Real NASA fact: ${poi.fact}`, 'Open the 🗺️ Map and click the next stop to travel.'], poi.source);
+    queuePopup(`✅ ${poi.name} complete!`, [`Real NASA fact: ${poi.fact}`, `Next stop: ${POIS[state.poiIndex + 1].name}. Press the yellow 🚀 Travel button under the scene to go there.`], poi.source);
   }
 }
 
@@ -419,15 +474,16 @@ function renderScene() {
           if (o.i === state.turn) cell.classList.add('active');
           if (o.ref.ko) cell.classList.add('ko');
           icon.textContent = o.ref.ko ? '💫' : CLASSES[o.ref.cls].emoji;
-          label.textContent = o.ref.name;
-          cell.title = `${o.ref.name} (${o.ref.cls})`;
+          label.textContent = o.ref.statuses.length ? `${o.ref.name} (${o.ref.statuses[0]})` : o.ref.name;
+          cell.title = `${o.ref.name} (${o.ref.cls})${o.ref.statuses.length ? `: ${o.ref.statuses.join(', ')}` : ''}`;
         } else if (o.kind === 'enemy') {
           cell.classList.add('enemy');
           if (o.ref.boss) cell.classList.add('boss');
           icon.textContent = o.ref.sprite;
           label.textContent = o.ref.name;
           if (o.ref.hits) { const t = document.createElement('span'); t.className = 'tag'; t.textContent = '💥'.repeat(Math.min(o.ref.hits, 4)); cell.append(t); }
-          cell.title = `${o.ref.name}: hit ${o.ref.hits} time(s). Click to attack.`;
+          cell.title = `${o.ref.name}: hit ${o.ref.hits} time(s)${o.ref.statuses.length ? `, ${o.ref.statuses.join(', ')}` : ''}. Click to attack.`;
+          if (o.ref.statuses.length) label.textContent = `${o.ref.name} (${o.ref.statuses[0]})`;
           cell.addEventListener('click', () => suggest(`I attack ${o.ref.name}`));
         } else {
           cell.classList.add('prop');
@@ -461,8 +517,18 @@ function renderPoi() {
   h.textContent = `${poi.name}${poi.base ? ' · ' + poi.base.name : ''}`;
   const ch = document.createElement('p');
   const done = state.cleared.includes(poi.id);
-  ch.textContent = done ? '✅ Cleared! Talk to the crew, or open the 🗺️ Map to travel on.' : `Challenge: ${poi.challenge}`;
+  ch.textContent = done ? '✅ Area cleared!' : `Challenge: ${poi.challenge}`;
   c.append(h, ch);
+  const next = POIS[state.poiIndex + 1];
+  if (done && next && !state.won) {
+    const b = document.createElement('button');
+    b.className = 'big continue';
+    b.textContent = `🚀 Travel to ${next.name}`;
+    b.disabled = state.busy || state.awaitContinue;
+    b.title = state.awaitContinue ? 'Press Continue first' : '';
+    b.addEventListener('click', () => { if (!state.busy && !state.awaitContinue) { sfx.play('clear'); enterPoi(state.poiIndex + 1); } });
+    c.append(b);
+  }
   if (!done && poi.goal) {
     const pr = document.createElement('p');
     pr.textContent = `Progress: ${'■'.repeat(Math.min(s.progress, poi.goal))}${'□'.repeat(Math.max(0, poi.goal - s.progress))}`;
@@ -473,7 +539,7 @@ function renderPoi() {
     ul.className = 'tiny';
     s.enemies.forEach((e) => {
       const li = document.createElement('li');
-      li.textContent = e.defeated ? `✖ ${e.name}: defeated` : `${e.sprite} ${e.name}: hit ${e.hits} time${e.hits === 1 ? '' : 's'}, fighting for ${e.turnsFought} turn${e.turnsFought === 1 ? '' : 's'}`;
+      li.textContent = e.defeated ? `✖ ${e.name}: defeated` : `${e.sprite} ${e.name}: hit ${e.hits} time${e.hits === 1 ? '' : 's'}, fighting for ${e.turnsFought} turn${e.turnsFought === 1 ? '' : 's'}${e.statuses.length ? ` · ${e.statuses.join(', ')}` : ''}`;
       ul.append(li);
     });
     c.append(ul);
@@ -494,7 +560,8 @@ function renderParty() {
   state.players.forEach((p, i) => {
     const d = document.createElement('div');
     d.className = 'pc' + (i === state.turn ? ' active' : '') + (p.ko ? ' ko' : '');
-    d.innerHTML = '<div class="name"></div><div class="cls"></div><div class="hearts"></div><div class="items"></div>';
+    d.innerHTML = '<div class="name"></div><div class="cls"></div><div class="hearts"></div><div class="statuses"></div><div class="items"></div>';
+    d.querySelector('.statuses').textContent = p.statuses.length ? `✨ ${p.statuses.join(', ')}` : '';
     d.querySelector('.name').textContent = `${i === state.turn ? '🎯 ' : ''}${p.name}`;
     d.querySelector('.cls').textContent = `${CLASSES[p.cls].emoji} ${p.cls}`;
     d.querySelector('.hearts').textContent = p.ko ? '💫 knocked out' : '❤️'.repeat(p.hp) + '🖤'.repeat(p.maxHp - p.hp);
@@ -517,14 +584,18 @@ function renderControls() {
   const p = state.players[state.turn];
   if (!state.busy) {
     const next = state.players[nextIndex()];
+    const enemiesNext = nextIndex() <= state.turn && !state.enemyPhaseDone && scene().enemies.some((e) => !e.defeated) && !state.cleared.includes(currentPoi().id);
     $('turnBanner').textContent = state.won ? '🎓 TRAINING COMPLETE!'
-      : state.awaitContinue ? `📖 Read what happened, then ${next.name} presses Continue`
+      : state.awaitContinue ? `📖 Read what happened, then press Continue`
+      : state.cleared.includes(currentPoi().id) && POIS[state.poiIndex + 1] ? `✅ AREA CLEAR! Press 🚀 Travel when ready · ${p.name}'s turn`
       : `🎯 ${p.name.toUpperCase()}'S TURN · ${CLASSES[p.cls].emoji} ${p.cls}`;
+    if (state.awaitContinue) $('continueBtn').textContent = enemiesNext ? 'Continue ▶ (🐛 enemies attack!)' : `Continue ▶ (${next.name}'s turn)`;
   }
+  $('dmMood').textContent = `${DM_SPRITE} mood: ${moodFace()}`;
   $('rollBtn').classList.toggle('hidden', state.awaitContinue);
   $('actionText').classList.toggle('hidden', state.awaitContinue);
   $('continueBtn').classList.toggle('hidden', !state.awaitContinue);
-  if (state.awaitContinue) $('continueBtn').textContent = `Continue ▶ (${state.players[nextIndex()].name}'s turn)`;
+
   $('itemLabel').textContent = state.selectedItem || 'none';
   const sel = $('talkTo');
   const base = currentPoi().base;

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Junior Astronaut Mission Trainer</title>
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
   <!-- Intro + setup -->
@@ -16,7 +16,9 @@
         <li><b>🎲 Roll:</b> on your turn, say what you want to do and roll a d20. The DM decides what you're rolling for and what happens. <b>1</b> backfires, <b>2-3</b> are really bad, <b>10</b> usually slides, <b>18-20</b> are amazing.</li>
         <li><b>💬 Talk:</b> talk to the DM or the astronauts at moon bases any time. Talking doesn't use your turn.</li>
         <li><b>🎒 Items:</b> you can only use what's in your inventory. Want more? <b>Search</b> things like rocks and crates.</li>
-        <li><b>❤️ HP:</b> lose it all and you get knocked out until the next location. It's a simulation, so you can't really lose.</li>
+        <li><b>❤️ HP:</b> your own rolls only hurt you on a 1-3. After everyone has gone, the 🐛 <b>enemies take a turn</b> and roll too (a 1 means they bonk themselves). Lose all your HP and you're knocked out until the next location. It's a simulation, so you can't really lose.</li>
+        <li><b>✨ Statuses:</b> things like <i>scared</i>, <i>weakened</i>, <i>shielded</i> or <i>dizzy</i> change what happens next. Weaken a bug before you finish it off!</li>
+        <li><b>🎩 Mood:</b> the DM has an ego. Compliment them and be creative to keep them happy. Annoy them and things get... petty.</li>
         <li><b>🎩 The DM:</b> plays favorites, just because it's funny. Someone in your crew is secretly lucky, and someone is secretly the lovable joke. Find out who at the end!</li>
         <li><b>🗺️ Goal:</b> clear 5 real lunar south pole locations and defeat the Giant Moon Worm.</li>
       </ul>
@@ -43,7 +45,7 @@
 
   <header>
     <h1>Junior Astronaut Mission Trainer</h1>
-    <span><button id="muteBtn" class="mute" title="Sound on/off">🔊</button> <span id="aiStatus" class="pill"></span></span>
+    <span><span id="dmMood" class="pill"></span> <button id="muteBtn" class="mute" title="Sound on/off">🔊</button> <span id="aiStatus" class="pill"></span></span>
   </header>
 
   <div id="turnBanner" class="turn-banner"></div>
@@ -94,7 +96,7 @@
 
   <footer>built by Troy · Space Apps 2026 · DM powered by Gemini</footer>
 
-  <script src="data.js?v=4"></script>
-  <script src="game.js?v=4"></script>
+  <script src="data.js?v=5"></script>
+  <script src="game.js?v=5"></script>
 </body>
 </html>
