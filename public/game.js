@@ -4,7 +4,7 @@
 const $ = (id) => document.getElementById(id);
 
 const state = {
-  players: [],      // { name, cls, perk, hp, maxHp, points, inventory[], ko, pos{x,y}, introduced }
+  players: [],      // { name, cls, perk, hp, maxHp, inventory[], ko, pos{x,y}, introduced }
   turn: 0,          // whose turn to roll
   poiIndex: 0,      // where the crew is
   cleared: [],      // POI ids finished
@@ -14,9 +14,57 @@ const state = {
   favorite: 0,      // secret
   joke: 1,          // secret
   selectedItem: null,
+  awaitContinue: false, // after a roll, wait for "Continue" so everyone can read what happened
   busy: false,
   won: false,
 };
+
+// ---------- sound effects: synthesized with the Web Audio API (no audio files) ----------
+const sfx = (() => {
+  let ctx = null;
+  let muted = false;
+  try { muted = localStorage.getItem('moonMuted') === '1'; } catch { /* storage blocked: fine */ }
+  function tone(freq, dur, { type = 'sine', vol = 0.12, at = 0, to = null } = {}) {
+    const t0 = ctx.currentTime + at;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start(t0);
+    o.stop(t0 + dur + 0.02);
+  }
+  const sounds = {
+    tick: () => tone(700 + Math.random() * 500, 0.03, { type: 'square', vol: 0.03 }),
+    land: () => tone(440, 0.12, { type: 'triangle' }),
+    crit: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.18, { type: 'triangle', at: i * 0.09 })),
+    fumble: () => tone(300, 0.6, { type: 'sawtooth', vol: 0.08, to: 70 }),
+    hit: () => tone(180, 0.15, { type: 'square', vol: 0.08, to: 60 }),
+    hurt: () => tone(220, 0.25, { type: 'sawtooth', vol: 0.06, to: 110 }),
+    heal: () => [600, 900].forEach((f, i) => tone(f, 0.15, { at: i * 0.08 })),
+    item: () => [880, 1320].forEach((f, i) => tone(f, 0.18, { type: 'triangle', at: i * 0.1 })),
+    defeat: () => tone(600, 0.3, { type: 'square', vol: 0.06, to: 120 }),
+    clear: () => [523, 784, 1047].forEach((f, i) => tone(f, 0.25, { type: 'triangle', at: i * 0.12 })),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.3, { type: 'triangle', at: i * 0.15 })),
+    turn: () => tone(660, 0.1, { type: 'sine', vol: 0.06 }),
+    talk: () => [500, 650].forEach((f, i) => tone(f, 0.07, { type: 'sine', vol: 0.05, at: i * 0.07 })),
+  };
+  return {
+    play(name) {
+      if (muted || !sounds[name]) return;
+      try {
+        ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'suspended') ctx.resume();
+        sounds[name]();
+      } catch { /* audio not available: stay silent */ }
+    },
+    toggle() { muted = !muted; try { localStorage.setItem('moonMuted', muted ? '1' : '0'); } catch { /* ignore */ } },
+    get muted() { return muted; },
+  };
+})();
 
 const currentPoi = () => POIS[state.poiIndex];
 const scene = () => state.scenes[currentPoi().id];
@@ -47,7 +95,7 @@ function startGame() {
     const c = CLASSES[cls];
     return {
       name: $('name' + i).value.trim().slice(0, 20) || `Astronaut ${i + 1}`,
-      cls, perk: c.perk, hp: c.hp, maxHp: c.hp, points: 0,
+      cls, perk: c.perk, hp: c.hp, maxHp: c.hp,
       inventory: [...c.items], ko: false, pos: { x: 0, y: i }, introduced: false,
     };
   });
@@ -69,12 +117,24 @@ function enterPoi(i) {
       progress: 0,
     };
   }
-  state.players.forEach((p, k) => { p.pos = { x: 0, y: k }; });
+  scatterPlayers();
   const done = state.cleared.includes(poi.id);
   addLog('sys', `📍 Arrived at ${poi.name}`);
   addLog('dm', done ? `${poi.name} is safe now. Chat with the crew or move on.` : poi.intro);
   setView('scene');
   render();
+}
+
+// Drop the crew on random free squares in the left half of the scene.
+function scatterPlayers() {
+  const s = scene();
+  const taken = new Set([...s.props, ...s.enemies.filter((e) => !e.defeated)].map((o) => `${o.pos.x},${o.pos.y}`));
+  const free = [];
+  for (let x = 0; x < 3; x++) for (let y = 0; y < GRID.h; y++) if (!taken.has(`${x},${y}`)) free.push({ x, y });
+  state.players.forEach((p) => {
+    const k = Math.floor(Math.random() * free.length);
+    p.pos = free.splice(k, 1)[0];
+  });
 }
 
 // ---------- talking to the server ----------
@@ -107,7 +167,7 @@ function d20() {
 async function animateDice(final) {
   const el = $('dice');
   el.className = 'dice';
-  for (let i = 0; i < 12; i++) { el.textContent = d20(); await sleep(55); }
+  for (let i = 0; i < 12; i++) { el.textContent = d20(); sfx.play('tick'); await sleep(55); }
   el.textContent = final;
   if (final === 20) el.classList.add('crit');
   if (final === 1) el.classList.add('fumble');
@@ -115,12 +175,13 @@ async function animateDice(final) {
 
 async function doRoll() {
   const text = $('actionText').value.trim();
-  if (!text || state.busy || state.won) return;
+  if (!text || state.busy || state.won || state.awaitContinue) return;
   const actor = state.turn;
   const roll = d20();
   setBusy(true);
   addLog('player', `${state.players[actor].name}: "${text}"${state.selectedItem ? ` (using ${state.selectedItem})` : ''}`);
   await animateDice(roll);
+  sfx.play(roll === 20 ? 'crit' : roll === 1 ? 'fumble' : 'land');
   addLog('sys', `🎲 ${state.players[actor].name} rolled a ${roll}`);
   showThinking();
   const reply = await askDM({ mode: 'action', actor, roll, text, itemUsed: state.selectedItem }).catch(() => null);
@@ -128,15 +189,24 @@ async function doRoll() {
   $('actionText').value = '';
   state.selectedItem = null;
   if (reply) {
-    if (reply.rollingFor) addLog('sys', `↳ it was a ${reply.rollingFor}`);
+    if (reply.rollingFor) addLog('sys', `↳ Rolling for: ${reply.rollingFor}`);
     applyReply(reply);
     scene().enemies.filter((e) => !e.defeated).forEach((e) => { e.turnsFought++; });
   } else {
     addLog('sys', 'Radio static... the DM missed that. Try again!');
   }
+  state.awaitContinue = true;
+  setBusy(false);
+  render();
+}
+
+// Next player presses Continue: then the turn passes and any popups appear.
+function doContinue() {
+  if (!state.awaitContinue) return;
+  state.awaitContinue = false;
+  sfx.play('turn');
   nextTurn();
   checkPoi();
-  setBusy(false);
   render();
   maybeTutorial();
 }
@@ -152,7 +222,7 @@ async function doTalk() {
   const reply = await askDM({ mode: 'talk', actor, text, talkTo }).catch(() => null);
   hideThinking();
   $('talkText').value = '';
-  if (reply) applyReply(reply, talkTo === 'dm' ? null : talkTo);
+  if (reply) { sfx.play('talk'); applyReply(reply, talkTo === 'dm' ? null : talkTo); }
   else addLog('sys', 'Radio static... try again!');
   setBusy(false);
   render();
@@ -166,13 +236,12 @@ function applyReply(r, speaker) {
     const p = state.players[e.player];
     if (!p) continue;
     const fx = [];
-    if (e.hpChange) { p.hp = Math.max(0, Math.min(p.maxHp, p.hp + e.hpChange)); fx.push(`${e.hpChange > 0 ? '+' : ''}${e.hpChange} HP`); }
-    if (e.pointsChange) { p.points += e.pointsChange; fx.push(`${e.pointsChange > 0 ? '+' : ''}${e.pointsChange} pts`); }
+    if (e.hpChange) { p.hp = Math.max(0, Math.min(p.maxHp, p.hp + e.hpChange)); fx.push(`${e.hpChange > 0 ? '+' : ''}${e.hpChange} HP`); sfx.play(e.hpChange < 0 ? 'hurt' : 'heal'); }
     if (e.removeItem) {
       const k = p.inventory.findIndex((x) => x.toLowerCase() === e.removeItem.toLowerCase());
       if (k >= 0) { p.inventory.splice(k, 1); fx.push(`used up ${e.removeItem}`); }
     }
-    if (e.addItem && p.inventory.length < 8) { p.inventory.push(e.addItem); fx.push(`found ${e.addItem}!`); }
+    if (e.addItem && p.inventory.length < 8) { p.inventory.push(e.addItem); fx.push(`found ${e.addItem}!`); sfx.play('item'); }
     if (fx.length) addLog('fx', `${p.name}: ${fx.join(', ')}`);
     if (p.hp === 0 && !p.ko) { p.ko = true; addLog('sys', `💫 ${p.name} is knocked out! The simulation reboots them at the next location.`); }
     if (p.hp > 0) p.ko = false;
@@ -180,8 +249,8 @@ function applyReply(r, speaker) {
   for (const u of r.enemyUpdates || []) {
     const en = s.enemies.find((x) => x.id === u.id);
     if (!en) continue;
-    if (u.hit) en.hits++;
-    if (u.defeated) { en.defeated = true; addLog('sys', `✖ ${en.name} is defeated!`); }
+    if (u.hit) { en.hits++; sfx.play('hit'); }
+    if (u.defeated) { en.defeated = true; addLog('sys', `✖ ${en.name} is defeated!`); sfx.play('defeat'); }
   }
   for (const m of r.moves || []) {
     const who = m.who.startsWith('p') ? state.players[Number(m.who.slice(1))] : s.enemies.find((x) => x.id === m.who);
@@ -198,12 +267,14 @@ function applyReply(r, speaker) {
   }
 }
 
-function nextTurn() {
+function nextIndex() {
   for (let i = 1; i <= 3; i++) {
     const t = (state.turn + i) % 3;
-    if (!state.players[t].ko) { state.turn = t; return; }
+    if (!state.players[t].ko) return t;
   }
+  return state.turn;
 }
+function nextTurn() { state.turn = nextIndex(); }
 
 function checkPoi() {
   const poi = currentPoi();
@@ -216,14 +287,14 @@ function checkPoi() {
   if (poi.boss) {
     state.won = true;
     const fav = state.players[state.favorite].name, joke = state.players[state.joke].name;
-    const best = [...state.players].sort((a, b) => b.points - a.points)[0];
+    sfx.play('win');
     queuePopup('🎓 Junior Astronauts Certified!', [
       'The Giant Moon Worm is defeated!',
       `Training fact: ${poi.fact}`,
-      `Secret reveal: ${DM_NAME}'s favorite was ${fav}, and the lovable joke of the crew was ${joke}.`,
-      `Most meaningless points: ${best.name} with ${best.points}. Congratulations, they mean nothing.`,
+      `Secret reveal: ${DM_NAME}'s favorite was ${fav} (that's why they kept getting lucky), and the lovable joke of the crew was ${joke}.`,
     ], poi.source);
   } else {
+    sfx.play('clear');
     queuePopup(`✅ ${poi.name} complete!`, [`Real NASA fact: ${poi.fact}`, 'Open the 🗺️ Map and click the next stop to travel.'], poi.source);
   }
 }
@@ -375,7 +446,7 @@ function renderScene() {
 }
 
 function suggest(text) {
-  if (state.busy) return;
+  if (state.busy || state.awaitContinue) return;
   $('tabRoll').click();
   $('actionText').value = text;
   $('actionText').focus();
@@ -423,13 +494,10 @@ function renderParty() {
   state.players.forEach((p, i) => {
     const d = document.createElement('div');
     d.className = 'pc' + (i === state.turn ? ' active' : '') + (p.ko ? ' ko' : '');
-    d.innerHTML = '<div class="name"></div><div class="cls"></div><div class="hearts"></div><div class="points"></div><div class="items"></div>';
+    d.innerHTML = '<div class="name"></div><div class="cls"></div><div class="hearts"></div><div class="items"></div>';
     d.querySelector('.name').textContent = `${i === state.turn ? '🎯 ' : ''}${p.name}`;
     d.querySelector('.cls').textContent = `${CLASSES[p.cls].emoji} ${p.cls}`;
     d.querySelector('.hearts').textContent = p.ko ? '💫 knocked out' : '❤️'.repeat(p.hp) + '🖤'.repeat(p.maxHp - p.hp);
-    const pts = d.querySelector('.points');
-    pts.textContent = `⭐ ${p.points} pts`;
-    pts.title = 'Points are meaningless. The DM gives or takes them based on vibes.';
     const items = d.querySelector('.items');
     p.inventory.forEach((it) => {
       const b = document.createElement('button');
@@ -448,8 +516,15 @@ function renderParty() {
 function renderControls() {
   const p = state.players[state.turn];
   if (!state.busy) {
-    $('turnBanner').textContent = state.won ? '🎓 TRAINING COMPLETE!' : `🎯 ${p.name.toUpperCase()}'S TURN · ${CLASSES[p.cls].emoji} ${p.cls}`;
+    const next = state.players[nextIndex()];
+    $('turnBanner').textContent = state.won ? '🎓 TRAINING COMPLETE!'
+      : state.awaitContinue ? `📖 Read what happened, then ${next.name} presses Continue`
+      : `🎯 ${p.name.toUpperCase()}'S TURN · ${CLASSES[p.cls].emoji} ${p.cls}`;
   }
+  $('rollBtn').classList.toggle('hidden', state.awaitContinue);
+  $('actionText').classList.toggle('hidden', state.awaitContinue);
+  $('continueBtn').classList.toggle('hidden', !state.awaitContinue);
+  if (state.awaitContinue) $('continueBtn').textContent = `Continue ▶ (${state.players[nextIndex()].name}'s turn)`;
   $('itemLabel').textContent = state.selectedItem || 'none';
   const sel = $('talkTo');
   const base = currentPoi().base;
@@ -479,6 +554,9 @@ function setView(v) {
 setupScreen();
 $('startBtn').addEventListener('click', startGame);
 $('rollBtn').addEventListener('click', doRoll);
+$('continueBtn').addEventListener('click', doContinue);
+$('muteBtn').addEventListener('click', () => { sfx.toggle(); $('muteBtn').textContent = sfx.muted ? '🔇' : '🔊'; });
+$('muteBtn').textContent = sfx.muted ? '🔇' : '🔊';
 $('talkBtn').addEventListener('click', doTalk);
 $('actionText').addEventListener('keydown', (e) => { if (e.key === 'Enter') doRoll(); });
 $('talkText').addEventListener('keydown', (e) => { if (e.key === 'Enter') doTalk(); });

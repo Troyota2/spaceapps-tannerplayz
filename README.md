@@ -18,7 +18,9 @@ A D&D-style training adventure at the Moon's south pole for 3 junior astronauts 
 7. **💬 Talk:** chat with the DM or the NPC astronauts at the two moon bases. Talking doesn't use your turn.
 8. It's nearly impossible to lose. Knocked-out astronauts reboot at the next location, and if the whole crew goes down, the simulation rewinds.
 
-**Secret DM mechanics** (revealed at the end of the game): the DM secretly picks a *favorite*, whose bad rolls get twisted into luck and who earns free "so smart" ⭐ points, and a *lovable joke of the crew*, who gets funnier misfortunes and loses points just for existing. **Points are completely meaningless.** The DM also keeps a list of running gags and keeps bringing them back.
+**Secret DM mechanics** (revealed at the end of the game): the DM secretly picks a *favorite*, whose bad rolls get twisted into ridiculous luck and who gets called "so smart" for anything, and a *lovable joke of the crew*, who gets funnier (never mean) misfortunes. The DM also keeps a list of running gags and keeps bringing them back.
+
+**Turn flow:** after each roll, the next player presses **Continue ▶** so everyone can read what happened first. Searching requires standing next to the spot; if the DM forgets to move you, the server walks you over. Sound effects are synthesized in the browser with the Web Audio API (no audio files), with a 🔊 mute button.
 
 ## The 5 locations and NASA facts
 | # | Location | Challenge | Real fact | Source |
@@ -49,6 +51,9 @@ I signed up and only remembered the night before, so I gave myself a strict ~2 h
 | ~4:10 PM | Tier 1 deployed to spaceapps.tannerplayz.com (separate repo, PM2 process, Nginx block, DNS record) |
 | 4:32 PM | Playtested; feedback round: classes, 5 HP, inventory-only items + searching, per-enemy tracking, scene grid with positions, turn banner, thinking indicator, intro + first-turn tutorials |
 | 4:41 PM | v2 written, 12 automated tests + full headless playthrough passing |
+| 4:55 PM | Live AI DM was timing out: the default model was overloaded (HTTP 503 after 22s); switched to `gemini-3.5-flash-lite` (1s responses) |
+| 5:05 PM | Fixed stale cached JS after deploy (cache-busting + no-cache headers) |
+| 5:15 PM | Second playtest with the real AI DM. Removed points, Continue button between turns, scattered starts, walk-to-search, synthesized sound effects, small-screen scene; 15 tests passing |
 | _fill in_ | Real Gemini DM tested live |
 | _fill in_ | End of build |
 

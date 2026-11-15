@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Junior Astronaut Mission Trainer</title>
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
   <!-- Intro + setup -->
@@ -17,7 +17,7 @@
         <li><b>💬 Talk:</b> talk to the DM or the astronauts at moon bases any time. Talking doesn't use your turn.</li>
         <li><b>🎒 Items:</b> you can only use what's in your inventory. Want more? <b>Search</b> things like rocks and crates.</li>
         <li><b>❤️ HP:</b> lose it all and you get knocked out until the next location. It's a simulation, so you can't really lose.</li>
-        <li><b>⭐ Points:</b> totally meaningless. The DM gives or takes them based on vibes.</li>
+        <li><b>🎩 The DM:</b> plays favorites, just because it's funny. Someone in your crew is secretly lucky, and someone is secretly the lovable joke. Find out who at the end!</li>
         <li><b>🗺️ Goal:</b> clear 5 real lunar south pole locations and defeat the Giant Moon Worm.</li>
       </ul>
       <div class="setup-grid">
@@ -43,7 +43,7 @@
 
   <header>
     <h1>Junior Astronaut Mission Trainer</h1>
-    <span id="aiStatus" class="pill"></span>
+    <span><button id="muteBtn" class="mute" title="Sound on/off">🔊</button> <span id="aiStatus" class="pill"></span></span>
   </header>
 
   <div id="turnBanner" class="turn-banner"></div>
@@ -79,6 +79,7 @@
           <input id="actionText" maxlength="300" placeholder="What do you do? e.g. 'I search behind the big rock'">
           <p class="tiny">Using item: <b id="itemLabel">none</b> (click one of your items to use it)</p>
           <button id="rollBtn" class="big">Roll d20</button>
+          <button id="continueBtn" class="big continue hidden">Continue ▶</button>
           <div id="dice" class="dice">🎲</div>
         </div>
 
@@ -93,7 +94,7 @@
 
   <footer>built by Troy · Space Apps 2026 · DM powered by Gemini</footer>
 
-  <script src="data.js?v=3"></script>
-  <script src="game.js?v=3"></script>
+  <script src="data.js?v=4"></script>
+  <script src="game.js?v=4"></script>
 </body>
 </html>

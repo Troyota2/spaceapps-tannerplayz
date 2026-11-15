@@ -68,9 +68,26 @@ test('moves: inside grid, no stacking, no unknown movers', () => {
   assert.deepStrictEqual(out.moves, [{ who: 'p0', x: 5, y: 0 }, { who: 'b1', x: 1, y: 1 }]);
 });
 
+test('searching from far away walks the player next to the spot', () => {
+  // Ava is at (0,0); the Big Rock is at (3,3).
+  const out = dm.sanitizeReply({ searched: 'rock', effects: [] }, req());
+  const mv = out.moves.find((m) => m.who === 'p0');
+  assert.ok(mv, 'a move was added');
+  assert.ok(Math.max(Math.abs(mv.x - 3), Math.abs(mv.y - 3)) <= 1, 'now adjacent');
+  // Already adjacent: no move added.
+  const s = state(); s.players[0].pos = { x: 2, y: 3 };
+  const out2 = dm.sanitizeReply({ searched: 'rock' }, dm.sanitizeRequest({ mode: 'action', actor: 0, roll: 12, text: 'x', state: s }));
+  assert.strictEqual(out2.moves.length, 0);
+});
+
+test('points are gone from the reply', () => {
+  const out = dm.sanitizeReply({ effects: [{ player: 0, pointsChange: 50 }] }, req());
+  assert.ok(!('pointsChange' in out.effects[0]));
+});
+
 test('talk mode never moves, damages, or gives items', () => {
-  const out = dm.sanitizeReply({ effects: [{ player: 0, hpChange: -2, pointsChange: 50, addItem: 'Gift' }], moves: [{ who: 'p0', x: 1, y: 1 }], enemyUpdates: [{ id: 'b1', hit: true, defeated: true }] }, req({ mode: 'talk' }));
-  assert.deepStrictEqual(out.effects[0], { player: 0, hpChange: 0, pointsChange: 50, addItem: null, removeItem: null });
+  const out = dm.sanitizeReply({ effects: [{ player: 0, hpChange: -2, addItem: 'Gift' }], moves: [{ who: 'p0', x: 1, y: 1 }], enemyUpdates: [{ id: 'b1', hit: true, defeated: true }] }, req({ mode: 'talk' }));
+  assert.deepStrictEqual(out.effects[0], { player: 0, hpChange: 0, addItem: null, removeItem: null });
   assert.deepStrictEqual([out.moves, out.enemyUpdates], [[], []]);
 });
 
@@ -78,9 +95,9 @@ test('fallback: damage rule (6-9 = 1, 1-5 = 2), favorite twist, search finds', (
   const ben = (roll, text = 'attack') => dm.fallbackReply(req({ actor: 1, roll, text }));
   assert.strictEqual(ben(7).effects[0].hpChange, -1);
   assert.strictEqual(ben(3).effects[0].hpChange, -2);
-  assert.ok(ben(3).effects[0].pointsChange < 0, 'joke loses points');
+  assert.ok(ben(3).narration.includes('Classic Ben'), 'joke gets roasted');
   const fav = dm.fallbackReply(req({ actor: 0, roll: 5 }));
-  assert.ok(fav.enemyUpdates[0].hit && fav.effects[0].pointsChange > 0);
+  assert.ok(fav.enemyUpdates[0].hit, 'favorite bad roll still lands');
   const search = ben(15, 'I search behind the rock');
   assert.strictEqual(search.searched, 'rock');
   assert.ok(search.effects[0].addItem);
@@ -126,6 +143,16 @@ test('endpoint falls back when Gemini errors, and 400s on bad input', async () =
     const out = await (await post(base, { mode: 'talk', actor: 0, text: 'hi', talkTo: 'dm', state: state() })).json();
     assert.strictEqual(out.offline, true);
     assert.strictEqual((await post(base, { mode: 'nope' })).status, 400);
+  });
+});
+
+test('offline DM searching also walks the player over', async () => {
+  await withServer({ apiKey: '' }, async (base) => {
+    const out = await (await post(base, { mode: 'action', actor: 0, roll: 15, text: 'I search the Big Rock', state: state() })).json();
+    assert.strictEqual(out.searched, 'rock');
+    const mv = out.moves.find((m) => m.who === 'p0');
+    assert.ok(mv && Math.max(Math.abs(mv.x - 3), Math.abs(mv.y - 3)) <= 1);
+    assert.strictEqual(out.offline, true);
   });
 });
 

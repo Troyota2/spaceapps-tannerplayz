@@ -37,6 +37,8 @@ function createApp({ apiKey = process.env.GEMINI_API_KEY, model = process.env.GE
 app.use(express.static(path.join(__dirname, 'public'), { setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') }));
 
   const limiter = createLimiter({ perMinute, dailyCap });
+  // Backup DM replies go through the same rule checks as Gemini's.
+  const offline = (clean) => ({ ...dm.sanitizeReply(dm.fallbackReply(clean), clean), offline: true });
 
   app.get('/api/health', (_req, res) => res.json({ ok: true, ai: !!apiKey }));
 
@@ -51,17 +53,17 @@ app.use(express.static(path.join(__dirname, 'public'), { setHeaders: (res) => re
     const gate = limiter(ip);
     if (!gate.ok) {
       // Still return a playable answer so the game never freezes.
-      const reply = dm.fallbackReply(clean);
+      const reply = offline(clean);
       reply.narration = (gate.reason === 'minute' ? 'Whoa, slow down, cadets! ' : '') + reply.narration;
       return res.status(200).json({ ...reply, limited: gate.reason });
     }
-    if (!apiKey) return res.json(dm.fallbackReply(clean));
+    if (!apiKey) return res.json(offline(clean));
     try {
       const raw = await dm.callGemini(clean, { apiKey, model, fetchImpl });
       return res.json(dm.sanitizeReply(raw, clean));
     } catch (err) {
       console.error('[dm] Gemini failed:', err.message); // never log the key or the body
-      return res.json(dm.fallbackReply(clean));
+      return res.json(offline(clean));
     }
   });
 
