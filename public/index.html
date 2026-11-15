@@ -7,26 +7,37 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Setup screen -->
+  <!-- Intro + setup -->
   <section id="setup" class="overlay">
-    <div class="panel">
-      <h1>Junior Astronaut Mission Trainer</h1>
-      <p class="sub">A lunar south pole training simulation for 3 cadets. Your Dungeon Master: <b id="dmNameSetup"></b> <span id="dmSpriteSetup"></span></p>
-      <label>Astronaut 1 <input id="name0" maxlength="20" value="Astro Ava"></label>
-      <label>Astronaut 2 <input id="name1" maxlength="20" value="Captain Ben"></label>
-      <label>Astronaut 3 <input id="name2" maxlength="20" value="Rover Cy"></label>
-      <p class="hint">Pass the device around, or play all three yourself. Take turns rolling the d20.</p>
+    <div class="panel wide">
+      <h1>🌑 Junior Astronaut Mission Trainer</h1>
+      <p>Welcome, cadets! You are 3 junior astronauts training at the Moon's <b>south pole</b>. Your Dungeon Master is <b><span class="dmName"></span> <span class="dmSprite"></span></b>, who controls everything that happens.</p>
+      <ul class="howto">
+        <li><b>🎲 Roll:</b> on your turn, say what you want to do and roll a d20. The DM decides what you're rolling for and what happens. <b>1</b> backfires, <b>2-3</b> are really bad, <b>10</b> usually slides, <b>18-20</b> are amazing.</li>
+        <li><b>💬 Talk:</b> talk to the DM or the astronauts at moon bases any time. Talking doesn't use your turn.</li>
+        <li><b>🎒 Items:</b> you can only use what's in your inventory. Want more? <b>Search</b> things like rocks and crates.</li>
+        <li><b>❤️ HP:</b> lose it all and you get knocked out until the next location. It's a simulation, so you can't really lose.</li>
+        <li><b>⭐ Points:</b> totally meaningless. The DM gives or takes them based on vibes.</li>
+        <li><b>🗺️ Goal:</b> clear 5 real lunar south pole locations and defeat the Giant Moon Worm.</li>
+      </ul>
+      <div class="setup-grid">
+        <div><label>Astronaut 1 <input id="name0" maxlength="20" value="Astro Ava"></label><select id="cls0"></select></div>
+        <div><label>Astronaut 2 <input id="name1" maxlength="20" value="Captain Ben"></label><select id="cls1"></select></div>
+        <div><label>Astronaut 3 <input id="name2" maxlength="20" value="Rover Cy"></label><select id="cls2"></select></div>
+      </div>
+      <p id="classInfo" class="tiny"></p>
+      <p class="hint">Pass the device around, or play all three yourself.</p>
       <button id="startBtn" class="big">Begin Training 🚀</button>
     </div>
   </section>
 
-  <!-- Fact / message popup -->
+  <!-- Popup for facts, tutorials, endings -->
   <section id="popup" class="overlay hidden">
     <div class="panel">
       <h2 id="popupTitle"></h2>
-      <p id="popupText"></p>
+      <div id="popupBody"></div>
       <p><a id="popupLink" target="_blank" rel="noopener"></a></p>
-      <button id="popupBtn" class="big">Continue</button>
+      <button id="popupBtn" class="big">Got it</button>
     </div>
   </section>
 
@@ -35,10 +46,22 @@
     <span id="aiStatus" class="pill"></span>
   </header>
 
+  <div id="turnBanner" class="turn-banner"></div>
+
   <main>
     <div class="col">
-      <svg id="map" viewBox="0 0 500 500" aria-label="Lunar south pole map"></svg>
-      <p class="tiny">Map is a diagram, not to scale. Click an unlocked location to travel.</p>
+      <div class="tabs">
+        <button id="viewScene" class="tab active">🧭 Scene</button>
+        <button id="viewMap" class="tab">🗺️ Map</button>
+      </div>
+      <div id="sceneView">
+        <div id="scene" class="scene"></div>
+        <p class="tiny">Click a bug or a search spot to fill in an action.</p>
+      </div>
+      <div id="mapView" class="hidden">
+        <svg id="map" viewBox="0 0 500 330" aria-label="Route map"></svg>
+        <p class="tiny">Your route across the lunar south pole. Click an unlocked stop to travel.</p>
+      </div>
       <div id="poiCard" class="card"></div>
     </div>
 
@@ -51,13 +74,12 @@
           <button id="tabRoll" class="tab active">🎲 Roll</button>
           <button id="tabTalk" class="tab">💬 Talk</button>
         </div>
-        <p id="turnLabel" class="turn"></p>
 
         <div id="rollPane">
-          <input id="actionText" maxlength="300" placeholder="What do you do? e.g. 'I swing my moon shovel at the bugs'">
-          <p class="tiny">Using item: <b id="itemLabel">none</b> (click an item in your inventory)</p>
+          <input id="actionText" maxlength="300" placeholder="What do you do? e.g. 'I search behind the big rock'">
+          <p class="tiny">Using item: <b id="itemLabel">none</b> (click one of your items to use it)</p>
           <button id="rollBtn" class="big">Roll d20</button>
-          <div id="dice" class="dice">–</div>
+          <div id="dice" class="dice">🎲</div>
         </div>
 
         <div id="talkPane" class="hidden">
