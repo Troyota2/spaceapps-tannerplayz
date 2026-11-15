@@ -1,3 +1,4 @@
+// SI disclosure: this file was written with help from Claude (Anthropic), an AI assistant, and reviewed/deployed by Troy.
 // game.js - game state and UI. The browser keeps the state; the server only narrates.
 'use strict';
 

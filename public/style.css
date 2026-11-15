@@ -1,3 +1,4 @@
+/* SI disclosure: written with help from Claude (Anthropic), an AI assistant. */
 /* Minimalist: black space, white lines, one accent color. */
 :root { --bg: #07080c; --fg: #e8e8ea; --dim: #8a8d99; --line: #2a2d38; --accent: #ffd166; --good: #7bd88f; --bad: #ff6b6b; }
 * { box-sizing: border-box; }

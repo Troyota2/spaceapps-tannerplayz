@@ -1,4 +1,5 @@
 'use strict';
+// SI disclosure: this file was written with help from Claude (Anthropic), an AI assistant, and reviewed/deployed by Troy.
 // server.js - serves the game from /public and exposes POST /api/dm.
 // The browser never talks to Gemini; it talks to this endpoint.
 require('dotenv').config({ quiet: true });

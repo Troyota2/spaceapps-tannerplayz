@@ -1,4 +1,5 @@
 'use strict';
+// SI disclosure: this file was written with help from Claude (Anthropic), an AI assistant, and reviewed/deployed by Troy.
 // dm.js - everything about the AI Dungeon Master lives here:
 //   rollBand()        turns a d20 number into a named result band
 //   sanitizeRequest() checks/clips what the browser sends (never trust the client)

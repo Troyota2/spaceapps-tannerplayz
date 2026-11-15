@@ -64,9 +64,12 @@ I signed up and only remembered the night before, so I gave myself a strict ~2 h
 
 **Cut to stay in the time box:** 3-device online multiplayer rooms (Socket.io), custom sprite art (emoji are used as sprites), sound, save/load, and a special dice "twist" rule.
 
-## AI disclosure
+## AI disclosure (Super Intelligence / SI use)
 - **Gemini (Google)** powers the in-game Dungeon Master at runtime. The browser sends each player action to this project's own server (`POST /api/dm`), and the server calls the Gemini API. The API key exists only in the server's environment and is never sent to the browser. The endpoint is rate limited per IP and has a daily cap.
-- **Claude (Anthropic)** helped write the code (server, game client, tests) and this README, and helped research the NASA sources. I reviewed and deployed everything.
+- **Claude (Anthropic)** helped write the code (server, game client, tests), this README, the submission text, and edited the demo video (which has a visible SI watermark). It also helped research and check the NASA sources. I designed the mechanics, playtested and gave the feedback that drove every revision, and set up and ran the server infrastructure.
+- **Sound effects** are synthesized at runtime by code Claude helped write (Web Audio API); no recorded or AI-generated audio files are used.
+- **No AI-generated images.** Sprites are standard emoji. No NASA logos, insignia, flags or mission patches are used anywhere.
+- Every source file starts with an SI disclosure comment, and `package.json` carries the same note.
 
 ## Credits
 - DM style inspired by Magic the Noah's D&D videos (inspiration credit only; no names, voices, catchphrases or content are used).

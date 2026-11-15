@@ -1,3 +1,4 @@
+// SI disclosure: this file was written with help from Claude (Anthropic), an AI assistant, and reviewed/deployed by Troy.
 // data.js - all game content. Edit text here without touching game logic.
 // Change the DM's name here (and in dm.js on the server).
 const DM_NAME = 'Magic the Tanner';

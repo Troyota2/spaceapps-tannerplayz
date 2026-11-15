@@ -1,4 +1,5 @@
 'use strict';
+// SI disclosure: this file was written with help from Claude (Anthropic), an AI assistant, and reviewed/deployed by Troy.
 const test = require('node:test');
 const assert = require('node:assert');
 const dm = require('../dm');
